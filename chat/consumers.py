@@ -67,6 +67,35 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     'timestamp': message_obj.timestamp.isoformat(),
                 }
             )
+            
+        elif message_type == 'close_conversation':
+            # Close the conversation
+            chat_session = await self.close_conversation(
+                self.customer_id, text_data_json.get('sender_name', 'Customer')
+            )
+            
+            # Notify both customer and admin
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'conversation_closed',
+                    'closed_by': text_data_json.get('sender_name', 'Customer'),
+                    'timestamp': chat_session.updated_at.isoformat(),
+                }
+            )
+            
+            # Notify admin dashboard
+            await self.channel_layer.group_send(
+                'admin_dashboard',
+                {
+                    'type': 'conversation_status_changed',
+                    'chat_session_id': str(chat_session.id),
+                    'customer_id': self.customer_id,
+                    'status': 'closed',
+                    'closed_by': text_data_json.get('sender_name', 'Customer'),
+                    'timestamp': chat_session.updated_at.isoformat(),
+                }
+            )
 
     # Receive message from room group
     async def chat_message(self, event):
@@ -86,6 +115,22 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'message_id': message_id,
         }))
 
+    # Handle conversation closure
+    async def conversation_closed(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'conversation_closed',
+            'closed_by': event['closed_by'],
+            'timestamp': event['timestamp'],
+        }))
+    
+    # Handle conversation reopening
+    async def conversation_reopened(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'conversation_reopened',
+            'reopened_by': event['reopened_by'],
+            'timestamp': event['timestamp'],
+        }))
+
     @database_sync_to_async
     def save_message(self, customer_id, message, sender_type, sender_name):
         # Get or create chat session
@@ -103,6 +148,23 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
         
         return chat_session, message_obj
+
+    @database_sync_to_async
+    def close_conversation(self, customer_id, closed_by):
+        # Get chat session and close it
+        chat_session = ChatSession.objects.get(customer_id=customer_id)
+        chat_session.status = 'closed'
+        chat_session.save()
+        
+        # Add a system message about the closure
+        Message.objects.create(
+            chat_session=chat_session,
+            content=f'Conversation closed by {closed_by}',
+            sender_type='system',
+            sender_name='System'
+        )
+        
+        return chat_session
 
 
 class AdminDashboardConsumer(AsyncWebsocketConsumer):
@@ -156,6 +218,68 @@ class AdminDashboardConsumer(AsyncWebsocketConsumer):
                     'message_id': str(message_obj.id),
                 }
             )
+            
+        elif message_type == 'admin_close_conversation':
+            customer_id = text_data_json['customer_id']
+            admin_name = self.scope["user"].get_full_name() or self.scope["user"].username
+            
+            # Close the conversation
+            chat_session = await self.close_admin_conversation(customer_id, admin_name)
+            
+            # Notify customer
+            customer_room = f'chat_{customer_id}'
+            await self.channel_layer.group_send(
+                customer_room,
+                {
+                    'type': 'conversation_closed',
+                    'closed_by': admin_name,
+                    'timestamp': chat_session.updated_at.isoformat(),
+                }
+            )
+            
+            # Notify admin dashboard
+            await self.channel_layer.group_send(
+                'admin_dashboard',
+                {
+                    'type': 'conversation_status_changed',
+                    'chat_session_id': str(chat_session.id),
+                    'customer_id': customer_id,
+                    'status': 'closed',
+                    'closed_by': admin_name,
+                    'timestamp': chat_session.updated_at.isoformat(),
+                }
+            )
+            
+        elif message_type == 'admin_reopen_conversation':
+            customer_id = text_data_json['customer_id']
+            admin_name = self.scope["user"].get_full_name() or self.scope["user"].username
+            
+            # Reopen the conversation
+            chat_session = await self.reopen_admin_conversation(customer_id, admin_name)
+            
+            # Notify customer
+            customer_room = f'chat_{customer_id}'
+            await self.channel_layer.group_send(
+                customer_room,
+                {
+                    'type': 'conversation_reopened',
+                    'reopened_by': admin_name,
+                    'timestamp': chat_session.updated_at.isoformat(),
+                }
+            )
+            
+            # Notify admin dashboard
+            await self.channel_layer.group_send(
+                'admin_dashboard',
+                {
+                    'type': 'conversation_status_changed',
+                    'chat_session_id': str(chat_session.id),
+                    'customer_id': customer_id,
+                    'status': 'open',
+                    'reopened_by': admin_name,
+                    'timestamp': chat_session.updated_at.isoformat(),
+                }
+            )
 
     async def new_message_notification(self, event):
         # Send notification to admin dashboard
@@ -168,6 +292,24 @@ class AdminDashboardConsumer(AsyncWebsocketConsumer):
             'sender_name': event['sender_name'],
             'timestamp': event['timestamp'],
         }))
+
+    async def conversation_status_changed(self, event):
+        # Send conversation status change notification to admin dashboard
+        response_data = {
+            'type': 'conversation_status_changed',
+            'chat_session_id': event['chat_session_id'],
+            'customer_id': event['customer_id'],
+            'status': event['status'],
+            'timestamp': event['timestamp'],
+        }
+        
+        # Add the appropriate field based on action
+        if event['status'] == 'closed':
+            response_data['closed_by'] = event.get('closed_by', 'Unknown')
+        elif event['status'] == 'open':
+            response_data['reopened_by'] = event.get('reopened_by', 'Unknown')
+        
+        await self.send(text_data=json.dumps(response_data))
 
     @database_sync_to_async
     def save_admin_message(self, customer_id, message, sender_name):
@@ -190,3 +332,37 @@ class AdminDashboardConsumer(AsyncWebsocketConsumer):
         )
         
         return chat_session, message_obj
+
+    @database_sync_to_async
+    def close_admin_conversation(self, customer_id, admin_name):
+        # Get chat session and close it
+        chat_session = ChatSession.objects.get(customer_id=customer_id)
+        chat_session.status = 'closed'
+        chat_session.save()
+        
+        # Add a system message about the closure
+        Message.objects.create(
+            chat_session=chat_session,
+            content=f'Conversation closed by {admin_name}',
+            sender_type='system',
+            sender_name='System'
+        )
+        
+        return chat_session
+    
+    @database_sync_to_async
+    def reopen_admin_conversation(self, customer_id, admin_name):
+        # Get chat session and reopen it
+        chat_session = ChatSession.objects.get(customer_id=customer_id)
+        chat_session.status = 'open'
+        chat_session.save()
+        
+        # Add a system message about the reopening
+        Message.objects.create(
+            chat_session=chat_session,
+            content=f'Conversation reopened by {admin_name}',
+            sender_type='system',
+            sender_name='System'
+        )
+        
+        return chat_session

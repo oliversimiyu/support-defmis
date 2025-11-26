@@ -20,8 +20,8 @@
     const config = {
         apiUrl: window.DEFMISChat?.apiUrl || 'http://localhost:8000',
         customerId: window.DEFMISChat?.customerId || localStorage.getItem('defmis_customer_id') || null,
-        customerName: window.DEFMISChat?.customerName || '',
-        customerEmail: window.DEFMISChat?.customerEmail || ''
+        customerName: window.DEFMISChat?.customerName || localStorage.getItem('defmis_customer_name') || '',
+        customerEmail: window.DEFMISChat?.customerEmail || localStorage.getItem('defmis_customer_email') || ''
     };
 
     let chatSession = null;
@@ -87,10 +87,23 @@
                         padding: 15px;
                         border-radius: 10px 10px 0 0;
                         font-weight: 600;
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
                     ">
-                        ${widgetConfig?.name || 'Customer Support'}
-                        <div id="defmis-connection-status" style="font-size: 12px; margin-top: 5px; opacity: 0.8;">
-                            Connecting...
+                        <img src="${config.apiUrl}/static/images/logo.png" alt="Logo" style="
+                            width: 32px;
+                            height: 32px;
+                            object-fit: contain;
+                            background: white;
+                            border-radius: 6px;
+                            padding: 4px;
+                        ">
+                        <div style="flex: 1;">
+                            <div>${widgetConfig?.name || 'Customer Support'}</div>
+                            <div id="defmis-connection-status" style="font-size: 12px; margin-top: 2px; opacity: 0.8;">
+                                Connecting...
+                            </div>
                         </div>
                     </div>
 
@@ -114,14 +127,84 @@
                         </div>
                     </div>
 
-                    <!-- Input Area -->
-                    <div style="
-                        padding: 15px;
+                    <!-- Customer Info Form -->
+                    <div id="defmis-customer-form" style="
+                        padding: 20px;
                         border-top: 1px solid #eee;
                         background: white;
                         border-radius: 0 0 10px 10px;
                     ">
-                        <div style="display: flex; gap: 10px;">
+                        <div style="margin-bottom: 15px; text-align: center;">
+                            <h4 style="margin: 0 0 10px 0; color: #333; font-size: 16px;">Start a Conversation</h4>
+                            <p style="margin: 0; color: #666; font-size: 14px;">Please provide your details to get started</p>
+                        </div>
+                        
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px; color: #333; font-size: 14px; font-weight: 500;">Name *</label>
+                            <input 
+                                type="text" 
+                                id="defmis-customer-name" 
+                                placeholder="Enter your name"
+                                required
+                                style="
+                                    width: 100%;
+                                    padding: 10px 12px;
+                                    border: 1px solid #ddd;
+                                    border-radius: 6px;
+                                    outline: none;
+                                    font-size: 14px;
+                                    box-sizing: border-box;
+                                "
+                            />
+                        </div>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; margin-bottom: 5px; color: #333; font-size: 14px; font-weight: 500;">Email *</label>
+                            <input 
+                                type="email" 
+                                id="defmis-customer-email" 
+                                placeholder="Enter your email"
+                                required
+                                style="
+                                    width: 100%;
+                                    padding: 10px 12px;
+                                    border: 1px solid #ddd;
+                                    border-radius: 6px;
+                                    outline: none;
+                                    font-size: 14px;
+                                    box-sizing: border-box;
+                                "
+                            />
+                        </div>
+                        
+                        <button 
+                            id="defmis-start-chat-button"
+                            style="
+                                width: 100%;
+                                background-color: ${primaryColor};
+                                color: white;
+                                border: none;
+                                padding: 12px;
+                                border-radius: 6px;
+                                cursor: pointer;
+                                font-size: 14px;
+                                font-weight: 500;
+                                transition: background-color 0.3s;
+                            "
+                        >
+                            Start Chat
+                        </button>
+                    </div>
+
+                    <!-- Input Area (hidden initially) -->
+                    <div id="defmis-chat-input" style="
+                        padding: 15px;
+                        border-top: 1px solid #eee;
+                        background: white;
+                        border-radius: 0 0 10px 10px;
+                        display: none;
+                    ">
+                        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
                             <input 
                                 type="text" 
                                 id="defmis-message-input" 
@@ -154,6 +237,54 @@
                                 </svg>
                             </button>
                         </div>
+                        <div style="text-align: center;">
+                            <button 
+                                id="defmis-close-conversation-button"
+                                style="
+                                    background: none;
+                                    border: 1px solid #dc3545;
+                                    color: #dc3545;
+                                    padding: 6px 12px;
+                                    border-radius: 4px;
+                                    cursor: pointer;
+                                    font-size: 12px;
+                                    transition: all 0.3s;
+                                "
+                                onmouseover="this.style.backgroundColor='#dc3545'; this.style.color='white';"
+                                onmouseout="this.style.backgroundColor='transparent'; this.style.color='#dc3545';"
+                            >
+                                End Conversation
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Conversation Closed Message -->
+                    <div id="defmis-conversation-closed" style="
+                        padding: 20px;
+                        border-top: 1px solid #eee;
+                        background: #f8f9fa;
+                        border-radius: 0 0 10px 10px;
+                        text-align: center;
+                        display: none;
+                    ">
+                        <div style="color: #6c757d; font-size: 14px; margin-bottom: 10px;">
+                            <i class="fas fa-check-circle" style="margin-right: 5px; color: #28a745;"></i>
+                            <span id="defmis-closed-message">This conversation has been closed.</span>
+                        </div>
+                        <button 
+                            id="defmis-new-conversation-button"
+                            style="
+                                background-color: ${primaryColor};
+                                color: white;
+                                border: none;
+                                padding: 8px 16px;
+                                border-radius: 4px;
+                                cursor: pointer;
+                                font-size: 12px;
+                            "
+                        >
+                            Start New Conversation
+                        </button>
                     </div>
                 </div>
             </div>
@@ -170,14 +301,20 @@
             // Create widget HTML
             document.body.insertAdjacentHTML('beforeend', createWidgetHTML());
 
-            // Initialize chat session
-            await initChatSession();
-
             // Set up event listeners
             setupEventListeners();
 
-            // Initialize WebSocket
-            initWebSocket();
+            // Check if customer info exists
+            if (config.customerName && config.customerEmail) {
+                // Initialize chat session with existing info
+                await initChatSession();
+                showChatInterface();
+                // Initialize WebSocket
+                initWebSocket();
+            } else {
+                // Show customer info form
+                showCustomerForm();
+            }
 
             console.log('DEFMIS Chat Widget initialized successfully');
         } catch (error) {
@@ -257,6 +394,10 @@
             const data = JSON.parse(event.data);
             if (data.type === 'chat_message' && data.sender_type === 'admin') {
                 addMessage(data.message, data.sender_type, data.sender_name, true);
+            } else if (data.type === 'conversation_closed') {
+                handleConversationClosed(data.closed_by);
+            } else if (data.type === 'conversation_reopened') {
+                handleConversationReopened(data.reopened_by);
             }
         };
 
@@ -280,15 +421,74 @@
         }
     };
 
+    // Show customer info form
+    const showCustomerForm = () => {
+        const customerForm = document.getElementById('defmis-customer-form');
+        const chatInput = document.getElementById('defmis-chat-input');
+        
+        if (customerForm) customerForm.style.display = 'block';
+        if (chatInput) chatInput.style.display = 'none';
+    };
+
+    // Show chat interface
+    const showChatInterface = () => {
+        const customerForm = document.getElementById('defmis-customer-form');
+        const chatInput = document.getElementById('defmis-chat-input');
+        
+        if (customerForm) customerForm.style.display = 'none';
+        if (chatInput) chatInput.style.display = 'block';
+    };
+
+    // Handle customer form submission
+    const handleCustomerFormSubmit = async () => {
+        const nameInput = document.getElementById('defmis-customer-name');
+        const emailInput = document.getElementById('defmis-customer-email');
+        
+        const name = nameInput?.value.trim();
+        const email = emailInput?.value.trim();
+        
+        if (!name || !email) {
+            alert('Please enter both your name and email address.');
+            return;
+        }
+        
+        // Email validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            alert('Please enter a valid email address.');
+            return;
+        }
+        
+        // Store customer info
+        config.customerName = name;
+        config.customerEmail = email;
+        localStorage.setItem('defmis_customer_name', name);
+        localStorage.setItem('defmis_customer_email', email);
+        
+        // Initialize chat session
+        try {
+            await initChatSession();
+            showChatInterface();
+            initWebSocket();
+            
+            // Focus on message input
+            const messageInput = document.getElementById('defmis-message-input');
+            if (messageInput) {
+                messageInput.focus();
+            }
+        } catch (error) {
+            console.error('Error starting chat session:', error);
+            alert('Error starting chat session. Please try again.');
+        }
+    };
+
     // Set up event listeners
     const setupEventListeners = () => {
         const toggle = document.getElementById('defmis-chat-toggle');
         const window = document.getElementById('defmis-chat-window');
         const chatIcon = document.getElementById('defmis-chat-icon');
         const closeIcon = document.getElementById('defmis-close-icon');
-        const input = document.getElementById('defmis-message-input');
-        const sendButton = document.getElementById('defmis-send-button');
-
+        
         // Toggle chat window
         toggle.addEventListener('click', () => {
             const isVisible = window.style.display === 'flex';
@@ -297,19 +497,62 @@
             closeIcon.style.display = isVisible ? 'none' : 'block';
 
             if (!isVisible) {
-                input.focus();
+                // Focus on appropriate input based on current view
+                if (config.customerName && config.customerEmail) {
+                    const messageInput = document.getElementById('defmis-message-input');
+                    if (messageInput) messageInput.focus();
+                } else {
+                    const nameInput = document.getElementById('defmis-customer-name');
+                    if (nameInput) nameInput.focus();
+                }
             }
         });
 
-        // Send message on button click
-        sendButton.addEventListener('click', sendMessage);
-
-        // Send message on Enter key
-        input.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                sendMessage();
+        // Customer form event listeners
+        const startChatButton = document.getElementById('defmis-start-chat-button');
+        const nameInput = document.getElementById('defmis-customer-name');
+        const emailInput = document.getElementById('defmis-customer-email');
+        
+        if (startChatButton) {
+            startChatButton.addEventListener('click', handleCustomerFormSubmit);
+        }
+        
+        // Enter key on form inputs
+        [nameInput, emailInput].forEach(input => {
+            if (input) {
+                input.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        handleCustomerFormSubmit();
+                    }
+                });
             }
         });
+
+        // Chat message event listeners
+        const input = document.getElementById('defmis-message-input');
+        const sendButton = document.getElementById('defmis-send-button');
+        const closeButton = document.getElementById('defmis-close-conversation-button');
+        const newConversationButton = document.getElementById('defmis-new-conversation-button');
+
+        if (sendButton) {
+            sendButton.addEventListener('click', sendMessage);
+        }
+
+        if (input) {
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+        }
+
+        if (closeButton) {
+            closeButton.addEventListener('click', closeConversation);
+        }
+
+        if (newConversationButton) {
+            newConversationButton.addEventListener('click', startNewConversation);
+        }
     };
 
     // Send message
@@ -354,20 +597,50 @@
     const addMessage = (content, senderType, senderName, animate = false) => {
         const messagesContainer = document.getElementById('defmis-messages');
         const isCustomer = senderType === 'customer';
+        const isSystem = senderType === 'system';
 
         const messageDiv = document.createElement('div');
         messageDiv.className = `defmis-message defmis-message-${senderType}`;
+        
+        let backgroundColor, textColor, marginLeft, marginRight, textAlign, fontStyle;
+        
+        if (isSystem) {
+            backgroundColor = '#f8f9fa';
+            textColor = '#6c757d';
+            marginLeft = 'auto';
+            marginRight = 'auto';
+            textAlign = 'center';
+            fontStyle = 'italic';
+        } else if (isCustomer) {
+            backgroundColor = '#007bff';
+            textColor = 'white';
+            marginLeft = 'auto';
+            marginRight = '0';
+            textAlign = 'left';
+            fontStyle = 'normal';
+        } else {
+            backgroundColor = 'white';
+            textColor = 'black';
+            marginLeft = '0';
+            marginRight = 'auto';
+            textAlign = 'left';
+            fontStyle = 'normal';
+        }
+
         messageDiv.style.cssText = `
-            background: ${isCustomer ? '#007bff' : 'white'};
-            color: ${isCustomer ? 'white' : 'black'};
+            background: ${backgroundColor};
+            color: ${textColor};
             padding: 10px 12px;
             border-radius: 18px;
             margin-bottom: 10px;
-            max-width: 80%;
-            font-size: 14px;
-            margin-left: ${isCustomer ? 'auto' : '0'};
-            margin-right: ${isCustomer ? '0' : 'auto'};
+            max-width: ${isSystem ? '90%' : '80%'};
+            font-size: ${isSystem ? '12px' : '14px'};
+            margin-left: ${marginLeft};
+            margin-right: ${marginRight};
+            text-align: ${textAlign};
+            font-style: ${fontStyle};
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            ${isSystem ? 'border: 1px solid #e9ecef;' : ''}
             ${animate ? 'animation: slideIn 0.3s ease;' : ''}
         `;
         messageDiv.textContent = content;
@@ -380,6 +653,121 @@
     const scrollToBottom = () => {
         const messagesContainer = document.getElementById('defmis-messages');
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    };
+
+    // Close conversation
+    const closeConversation = () => {
+        if (confirm('Are you sure you want to end this conversation?')) {
+            // Send close message via WebSocket if connected
+            if (socket && isConnected) {
+                socket.send(JSON.stringify({
+                    type: 'close_conversation',
+                    sender_name: config.customerName || 'Customer'
+                }));
+            } else {
+                // Fallback to HTTP API
+                fetch(`${config.apiUrl}/chat/api/admin/session/${chatSession.id}/status/`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        status: 'closed'
+                    })
+                }).then(() => {
+                    handleConversationClosed(config.customerName || 'Customer');
+                }).catch(error => {
+                    console.error('Error closing conversation:', error);
+                });
+            }
+        }
+    };
+
+    // Handle conversation closed
+    const handleConversationClosed = (closedBy) => {
+        const chatInput = document.getElementById('defmis-chat-input');
+        const conversationClosed = document.getElementById('defmis-conversation-closed');
+        const closedMessage = document.getElementById('defmis-closed-message');
+        
+        if (chatInput) chatInput.style.display = 'none';
+        if (conversationClosed) conversationClosed.style.display = 'block';
+        if (closedMessage) {
+            closedMessage.textContent = `This conversation was closed by ${closedBy}.`;
+        }
+
+        // Add system message to chat
+        addMessage(`Conversation closed by ${closedBy}`, 'system', 'System', true);
+        
+        // Close WebSocket connection
+        if (socket) {
+            socket.close();
+        }
+    };
+
+    // Handle conversation reopened
+    const handleConversationReopened = (reopenedBy) => {
+        const chatInput = document.getElementById('defmis-chat-input');
+        const conversationClosed = document.getElementById('defmis-conversation-closed');
+        
+        if (chatInput) chatInput.style.display = 'block';
+        if (conversationClosed) conversationClosed.style.display = 'none';
+
+        // Add system message to chat
+        addMessage(`Conversation reopened by ${reopenedBy}`, 'system', 'System', true);
+        
+        // Reconnect WebSocket if needed
+        if (!socket || socket.readyState === WebSocket.CLOSED) {
+            initWebSocket();
+        }
+        
+        // Focus on message input
+        const messageInput = document.getElementById('defmis-message-input');
+        if (messageInput) {
+            messageInput.focus();
+        }
+    };
+
+    // Start new conversation
+    const startNewConversation = () => {
+        // Clear stored conversation data
+        localStorage.removeItem('defmis_customer_id');
+        
+        // Generate new customer ID
+        config.customerId = 'customer_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem('defmis_customer_id', config.customerId);
+        
+        // Reset chat session
+        chatSession = null;
+        
+        // Clear messages
+        const messagesContainer = document.getElementById('defmis-messages');
+        messagesContainer.innerHTML = `
+            <div class="defmis-message defmis-message-admin" style="
+                background: white;
+                padding: 10px 12px;
+                border-radius: 18px;
+                margin-bottom: 10px;
+                max-width: 80%;
+                font-size: 14px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            ">
+                ${widgetConfig?.welcome_message || 'Hi there! How can we help you today?'}
+            </div>
+        `;
+        
+        // Show chat input and hide closed message
+        const chatInput = document.getElementById('defmis-chat-input');
+        const conversationClosed = document.getElementById('defmis-conversation-closed');
+        
+        if (chatInput) chatInput.style.display = 'block';
+        if (conversationClosed) conversationClosed.style.display = 'none';
+        
+        // Initialize new chat session and WebSocket
+        initChatSession().then(() => {
+            initWebSocket();
+            const messageInput = document.getElementById('defmis-message-input');
+            if (messageInput) messageInput.focus();
+        });
     };
 
     // Add CSS animations
@@ -398,9 +786,20 @@
             opacity: 0.8;
         }
         
-        #defmis-message-input:focus {
+        #defmis-message-input:focus,
+        #defmis-customer-name:focus,
+        #defmis-customer-email:focus {
             border-color: ${widgetConfig?.primary_color || '#007bff'};
             box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+        }
+        
+        #defmis-start-chat-button:hover {
+            opacity: 0.9;
+        }
+        
+        #defmis-start-chat-button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
         }
     `;
     document.head.appendChild(style);

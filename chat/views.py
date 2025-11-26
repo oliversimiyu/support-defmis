@@ -25,7 +25,7 @@ def widget_config(request):
         else:
             # Return default configuration
             return Response({
-                'name': 'Chat Widget',
+                'name': 'Defmis Agent',
                 'welcome_message': 'Hi there! How can we help you today?',
                 'primary_color': '#007bff',
                 'widget_position': 'bottom-right',

@@ -147,10 +147,11 @@
                 
                 <p style="margin-top: 15px;"><strong>Features to test:</strong></p>
                 <ul>
+                    <li><strong>Click the chat widget</strong> - you'll be prompted to enter your name and email</li>
                     <li>Send messages as a customer using the chat widget</li>
                     <li>View and respond to messages in the admin dashboard</li>
                     <li>Test real-time messaging between customer and admin</li>
-                    <li>Try refreshing the page - your conversation will persist</li>
+                    <li>Try refreshing the page - your conversation will persist with your info</li>
                     <li>Test on mobile devices for responsive design</li>
                 </ul>
             </div>
@@ -163,11 +164,12 @@
   window.DEFMISChat = {
     apiUrl: 'http://localhost:8000',
     customerId: null, // Auto-generated if not provided
-    customerName: '', // Optional customer name
-    customerEmail: '' // Optional customer email
+    customerName: '', // Leave empty to prompt user
+    customerEmail: '' // Leave empty to prompt user
   };
 &lt;/script&gt;
 &lt;script src="http://localhost:8000/static/js/chat-widget.js"&gt;&lt;/script&gt;</code></pre>
+            <p><strong>Customer Information Collection:</strong> If <code>customerName</code> and <code>customerEmail</code> are empty, the widget will automatically prompt users to enter their details before starting a conversation. This information is saved locally and used for future conversations.</p>
         </div>
     </div>
 
@@ -176,8 +178,8 @@
         window.DEFMISChat = {
             apiUrl: 'http://localhost:8000',
             customerId: null, // Auto-generated
-            customerName: 'Demo Customer',
-            customerEmail: 'demo@example.com'
+            customerName: '', // Will be prompted
+            customerEmail: '' // Will be prompted
         };
     </script>
     <script src="/static/js/chat-widget.js"></script>

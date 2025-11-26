@@ -35,6 +35,7 @@ class Message(models.Model):
     SENDER_TYPES = [
         ('customer', 'Customer'),
         ('admin', 'Admin'),
+        ('system', 'System'),
     ]
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

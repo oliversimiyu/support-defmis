@@ -29,6 +29,14 @@
                     <!-- Messages Container -->
                     <div id="messages-container" class="flex-grow-1 overflow-auto mb-3" style="max-height: 450px;">
                         {% for message in messages %}
+                        {% if message.sender_type == 'system' %}
+                        <div class="d-flex justify-content-center">
+                            <div class="message-bubble message-system">
+                                <div class="mb-1">{{ message.content }}</div>
+                                <small class="opacity-75">{{ message.timestamp|date:"M d, H:i" }}</small>
+                            </div>
+                        </div>
+                        {% else %}
                         <div class="d-flex {% if message.sender_type == 'admin' %}justify-content-end{% else %}justify-content-start{% endif %}">
                             <div class="message-bubble {% if message.sender_type == 'admin' %}message-admin{% else %}message-customer{% endif %}">
                                 <div class="mb-1">{{ message.content }}</div>
@@ -37,6 +45,7 @@
                                 </small>
                             </div>
                         </div>
+                        {% endif %}
                         {% empty %}
                         <div class="text-center text-muted py-5">
                             <i class="fas fa-comments fa-3x mb-3"></i>
@@ -79,6 +88,7 @@
     const conversationId = '{{ conversation.id }}';
     const customerId = '{{ conversation.customer_id }}';
     const adminName = '{{ user.get_full_name|default:user.username }}';
+    let currentStatus = '{{ conversation.status }}'; // Track current status dynamically
     
     // WebSocket connection
     const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
@@ -101,6 +111,15 @@
         if (data.type === 'new_message_notification' && data.customer_id === customerId) {
             // Add new message to the chat
             addMessageToChat(data.message, data.sender_type, data.sender_name, data.timestamp);
+        } else if (data.type === 'conversation_status_changed' && data.customer_id === customerId) {
+            // Handle conversation status change
+            currentStatus = data.status;
+            if (data.status === 'closed') {
+                addMessageToChat(`Conversation closed by ${data.closed_by}`, 'system', 'System', data.timestamp);
+            } else if (data.status === 'open') {
+                addMessageToChat(`Conversation reopened by ${data.reopened_by}`, 'system', 'System', data.timestamp);
+            }
+            updateUIForStatus(data.status);
         }
     };
 
@@ -141,7 +160,11 @@
         messageDiv.className = `d-flex ${senderType === 'admin' ? 'justify-content-end' : 'justify-content-start'}`;
         
         const bubbleDiv = document.createElement('div');
-        bubbleDiv.className = `message-bubble ${senderType === 'admin' ? 'message-admin' : 'message-customer'}`;
+        let messageClass = 'message-customer';
+        if (senderType === 'admin') messageClass = 'message-admin';
+        else if (senderType === 'system') messageClass = 'message-system';
+        
+        bubbleDiv.className = `message-bubble ${messageClass}`;
         
         const date = new Date(timestamp);
         const timeString = date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -163,24 +186,47 @@
     }
 
     function toggleChatStatus() {
-        const newStatus = '{{ conversation.status }}' === 'open' ? 'closed' : 'open';
+        const newStatus = currentStatus === 'open' ? 'closed' : 'open';
         
-        fetch(`/chat/api/admin/session/${conversationId}/status/`, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: JSON.stringify({ status: newStatus })
-        })
-        .then(response => response.json())
-        .then(data => {
-            location.reload();
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Error updating chat status');
-        });
+        if (newStatus === 'closed') {
+            // Use WebSocket to close conversation for real-time updates
+            chatSocket.send(JSON.stringify({
+                'type': 'admin_close_conversation',
+                'customer_id': customerId
+            }));
+        } else {
+            // Use WebSocket to reopen conversation for real-time updates
+            chatSocket.send(JSON.stringify({
+                'type': 'admin_reopen_conversation',
+                'customer_id': customerId
+            }));
+        }
+    }
+    
+    function updateUIForStatus(status) {
+        const statusBadge = document.querySelector('.badge');
+        const toggleButton = document.querySelector('button[onclick="toggleChatStatus()"]');
+        const messageForm = document.getElementById('message-form');
+        const closedMessage = document.querySelector('.border-top.pt-3.text-center');
+        
+        if (statusBadge) {
+            statusBadge.className = status === 'open' ? 'badge bg-success me-2' : 'badge bg-secondary me-2';
+            statusBadge.textContent = status === 'open' ? 'Open' : 'Closed';
+        }
+        
+        if (toggleButton) {
+            toggleButton.textContent = status === 'open' ? 'Close Chat' : 'Reopen Chat';
+        }
+        
+        if (messageForm && closedMessage) {
+            if (status === 'open') {
+                messageForm.style.display = 'flex';
+                closedMessage.style.display = 'none';
+            } else {
+                messageForm.style.display = 'none';
+                closedMessage.style.display = 'block';
+            }
+        }
     }
 
     function getCookie(name) {

@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+{% load static %}
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -54,19 +55,21 @@
         }
         
         .logo-container {
-            width: 80px;
-            height: 80px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            border-radius: 50%;
+            width: 100px;
+            height: 100px;
             display: flex;
             align-items: center;
             justify-content: center;
             margin: 0 auto 20px;
+            border-radius: 15px;
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
         }
         
-        .logo-container i {
-            font-size: 2rem;
-            color: white;
+        .logo-container img {
+            max-width: 80px;
+            max-height: 80px;
+            object-fit: contain;
         }
         
         .form-floating {
@@ -166,10 +169,10 @@
     <div class="login-container">
         <div class="login-header">
             <div class="logo-container">
-                <i class="fas fa-comments"></i>
+                <img src="{% static 'images/logo.png' %}" alt="Defmis Logo">
             </div>
-            <h1>DEFMIS Dashboard</h1>
-            <p>Customer Support Chat Platform</p>
+            <h1>Defmis Support Portal</h1>
+    
         </div>
         
         <!-- Display Messages -->
@@ -209,7 +212,7 @@
         </form>
         
         <!-- Demo Information -->
-        <div class="demo-info">
+        <!--div class="demo-info">
             <h6><i class="fas fa-info-circle me-2"></i>Demo Credentials</h6>
             <div class="demo-credentials">
                 <strong>Username:</strong> admin<br>
@@ -218,10 +221,10 @@
             <small class="text-muted mt-2 d-block">
                 Use these credentials for the demo. Change them in production!
             </small>
-        </div>
+        </!--div>
         
         <!-- Footer Links -->
-        <div class="footer-links">
+        <!--div class="footer-links">
             <a href="/">
                 <i class="fas fa-home me-1"></i>
                 Demo Page
@@ -230,7 +233,7 @@
                 <i class="fas fa-cog me-1"></i>
                 Django Admin
             </a>
-        </div>
+        </!--div>
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
