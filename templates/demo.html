@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Widget Demo - DEFMIS Support</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            font-weight: 300;
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            margin-bottom: 3rem;
+            opacity: 0.9;
+        }
+        
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin: 3rem 0;
+        }
+        
+        .feature-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .cta {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 2rem;
+            margin: 3rem 0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .demo-info {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            text-align: left;
+        }
+        
+        .demo-info h3 {
+            margin-top: 0;
+            color: #ffd700;
+        }
+        
+        code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .admin-link {
+            display: inline-block;
+            background: #28a745;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 8px;
+            margin: 10px;
+            transition: background 0.3s;
+        }
+        
+        .admin-link:hover {
+            background: #218838;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>DEFMIS Support</h1>
+        <p class="subtitle">Real-time Customer Support Chat Platform</p>
+        
+        <div class="feature-grid">
+            <div class="feature-card">
+                <div class="feature-icon">💬</div>
+                <h3>Real-time Chat</h3>
+                <p>Instant messaging with WebSocket support for immediate responses.</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">🔄</div>
+                <h3>Persistent Messages</h3>
+                <p>Conversation history is saved, so customers can continue where they left off.</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">📱</div>
+                <h3>Responsive Design</h3>
+                <p>Works perfectly on desktop, tablet, and mobile devices.</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">⚙️</div>
+                <h3>Customizable Widget</h3>
+                <p>Easily customize colors, position, and welcome messages.</p>
+            </div>
+        </div>
+        
+        <div class="cta">
+            <h2>Try the Chat Widget</h2>
+            <p>Click the chat icon in the bottom-right corner to start a conversation!</p>
+            
+            <div class="demo-info">
+                <h3>🚀 Demo Information</h3>
+                <p><strong>Admin Login:</strong></p>
+                <p>Username: <code>admin</code></p>
+                <p>Password: <code>admin123</code></p>
+                
+                <p style="margin-top: 15px;">
+                    <a href="/admin/" class="admin-link">Admin Panel</a>
+                    <a href="/dashboard/" class="admin-link">Chat Dashboard</a>
+                </p>
+                
+                <p style="margin-top: 15px;"><strong>Features to test:</strong></p>
+                <ul>
+                    <li>Send messages as a customer using the chat widget</li>
+                    <li>View and respond to messages in the admin dashboard</li>
+                    <li>Test real-time messaging between customer and admin</li>
+                    <li>Try refreshing the page - your conversation will persist</li>
+                    <li>Test on mobile devices for responsive design</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="demo-info">
+            <h3>🛠️ Integration Instructions</h3>
+            <p>To add this chat widget to your website, include these scripts before the closing <code>&lt;/body&gt;</code> tag:</p>
+            <pre style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; overflow-x: auto; margin: 15px 0;"><code>&lt;script&gt;
+  window.DEFMISChat = {
+    apiUrl: 'http://localhost:8000',
+    customerId: null, // Auto-generated if not provided
+    customerName: '', // Optional customer name
+    customerEmail: '' // Optional customer email
+  };
+&lt;/script&gt;
+&lt;script src="http://localhost:8000/static/js/chat-widget.js"&gt;&lt;/script&gt;</code></pre>
+        </div>
+    </div>
+
+    <!-- Chat Widget Integration -->
+    <script>
+        window.DEFMISChat = {
+            apiUrl: 'http://localhost:8000',
+            customerId: null, // Auto-generated
+            customerName: 'Demo Customer',
+            customerEmail: 'demo@example.com'
+        };
+    </script>
+    <script src="/static/js/chat-widget.js"></script>
+</body>
+</html>

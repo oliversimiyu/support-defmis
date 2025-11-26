@@ -1,0 +1,204 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Chat with {{ conversation.customer_name|default:conversation.customer_id }} - Chat Platform{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>Chat with {{ conversation.customer_name|default:conversation.customer_id }}</h2>
+            <p class="text-muted mb-0">{{ conversation.customer_email|default:"No email provided" }}</p>
+        </div>
+        <div>
+            <span class="badge {% if conversation.status == 'open' %}bg-success{% else %}bg-secondary{% endif %} me-2">
+                {{ conversation.get_status_display }}
+            </span>
+            <button class="btn btn-sm btn-outline-primary" onclick="toggleChatStatus()">
+                {% if conversation.status == 'open' %}Close Chat{% else %}Reopen Chat{% endif %}
+            </button>
+            <a href="{% url 'dashboard:conversations' %}" class="btn btn-sm btn-secondary">
+                <i class="fas fa-arrow-left me-1"></i> Back to Conversations
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card" style="height: 600px;">
+                <div class="card-body d-flex flex-column">
+                    <!-- Messages Container -->
+                    <div id="messages-container" class="flex-grow-1 overflow-auto mb-3" style="max-height: 450px;">
+                        {% for message in messages %}
+                        <div class="d-flex {% if message.sender_type == 'admin' %}justify-content-end{% else %}justify-content-start{% endif %}">
+                            <div class="message-bubble {% if message.sender_type == 'admin' %}message-admin{% else %}message-customer{% endif %}">
+                                <div class="mb-1">{{ message.content }}</div>
+                                <small class="opacity-75">
+                                    {{ message.sender_name }} • {{ message.timestamp|date:"M d, H:i" }}
+                                </small>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="text-center text-muted py-5">
+                            <i class="fas fa-comments fa-3x mb-3"></i>
+                            <h5>No messages yet</h5>
+                            <p>This conversation hasn't started yet.</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Message Input -->
+                    {% if conversation.status == 'open' %}
+                    <div class="border-top pt-3">
+                        <form id="message-form" class="d-flex">
+                            <input type="text" id="message-input" class="form-control me-2" placeholder="Type your message..." required>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </form>
+                    </div>
+                    {% else %}
+                    <div class="border-top pt-3 text-center text-muted">
+                        <i class="fas fa-lock me-2"></i>
+                        This conversation is closed. Reopen to continue messaging.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- WebSocket connection indicator -->
+<div id="connection-status" class="position-fixed bottom-0 end-0 m-3">
+    <span class="badge bg-secondary">Connecting...</span>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const conversationId = '{{ conversation.id }}';
+    const customerId = '{{ conversation.customer_id }}';
+    const adminName = '{{ user.get_full_name|default:user.username }}';
+    
+    // WebSocket connection
+    const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
+    const wsPath = wsScheme + '://' + window.location.host + '/ws/admin/dashboard/';
+    const chatSocket = new WebSocket(wsPath);
+    
+    const connectionStatus = document.getElementById('connection-status');
+    const messagesContainer = document.getElementById('messages-container');
+    const messageForm = document.getElementById('message-form');
+    const messageInput = document.getElementById('message-input');
+
+    chatSocket.onopen = function(e) {
+        connectionStatus.innerHTML = '<span class="badge bg-success">Connected</span>';
+        setTimeout(() => connectionStatus.style.display = 'none', 2000);
+    };
+
+    chatSocket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        
+        if (data.type === 'new_message_notification' && data.customer_id === customerId) {
+            // Add new message to the chat
+            addMessageToChat(data.message, data.sender_type, data.sender_name, data.timestamp);
+        }
+    };
+
+    chatSocket.onclose = function(e) {
+        connectionStatus.innerHTML = '<span class="badge bg-danger">Disconnected</span>';
+        connectionStatus.style.display = 'block';
+    };
+
+    chatSocket.onerror = function(e) {
+        connectionStatus.innerHTML = '<span class="badge bg-warning">Error</span>';
+        connectionStatus.style.display = 'block';
+    };
+
+    // Handle message form submission
+    if (messageForm) {
+        messageForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const message = messageInput.value.trim();
+            if (message) {
+                // Send via WebSocket
+                chatSocket.send(JSON.stringify({
+                    'type': 'admin_message',
+                    'customer_id': customerId,
+                    'message': message,
+                    'sender_name': adminName
+                }));
+                
+                // Add to chat immediately
+                addMessageToChat(message, 'admin', adminName, new Date().toISOString());
+                messageInput.value = '';
+            }
+        });
+    }
+
+    function addMessageToChat(message, senderType, senderName, timestamp) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `d-flex ${senderType === 'admin' ? 'justify-content-end' : 'justify-content-start'}`;
+        
+        const bubbleDiv = document.createElement('div');
+        bubbleDiv.className = `message-bubble ${senderType === 'admin' ? 'message-admin' : 'message-customer'}`;
+        
+        const date = new Date(timestamp);
+        const timeString = date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        
+        bubbleDiv.innerHTML = `
+            <div class="mb-1">${escapeHtml(message)}</div>
+            <small class="opacity-75">${escapeHtml(senderName)} • ${timeString}</small>
+        `;
+        
+        messageDiv.appendChild(bubbleDiv);
+        messagesContainer.appendChild(messageDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function toggleChatStatus() {
+        const newStatus = '{{ conversation.status }}' === 'open' ? 'closed' : 'open';
+        
+        fetch(`/chat/api/admin/session/${conversationId}/status/`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ status: newStatus })
+        })
+        .then(response => response.json())
+        .then(data => {
+            location.reload();
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error updating chat status');
+        });
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // Auto-scroll to bottom on page load
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+</script>
+{% endblock %}
