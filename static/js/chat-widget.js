@@ -28,6 +28,9 @@
     let socket = null;
     let widgetConfig = null;
     let isConnected = false;
+    let unreadCount = 0;
+    let isWidgetOpen = false;
+    let lastNotificationTime = 0;
 
     // Generate unique customer ID if not provided
     if (!config.customerId) {
@@ -59,6 +62,7 @@
                     justify-content: center;
                     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
                     transition: all 0.3s ease;
+                    position: relative;
                 ">
                     <svg id="defmis-chat-icon" width="24" height="24" fill="white" viewBox="0 0 24 24">
                         <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
@@ -66,6 +70,26 @@
                     <svg id="defmis-close-icon" width="24" height="24" fill="white" viewBox="0 0 24 24" style="display: none;">
                         <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
                     </svg>
+                    
+                    <!-- Notification Badge -->
+                    <div id="defmis-notification-badge" style="
+                        position: absolute;
+                        top: -5px;
+                        right: -5px;
+                        background-color: #dc3545;
+                        color: white;
+                        border-radius: 50%;
+                        width: 20px;
+                        height: 20px;
+                        font-size: 11px;
+                        font-weight: bold;
+                        display: none;
+                        align-items: center;
+                        justify-content: center;
+                        animation: pulse 2s infinite;
+                    ">
+                        0
+                    </div>
                 </div>
 
                 <!-- Chat Window -->
@@ -316,6 +340,11 @@
                 showCustomerForm();
             }
 
+            // Request notification permission
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission();
+            }
+
             console.log('DEFMIS Chat Widget initialized successfully');
         } catch (error) {
             console.error('Error initializing chat widget:', error);
@@ -394,6 +423,12 @@
             const data = JSON.parse(event.data);
             if (data.type === 'chat_message' && data.sender_type === 'admin') {
                 addMessage(data.message, data.sender_type, data.sender_name, true);
+                
+                // Show notification if widget is closed
+                if (!isWidgetOpen) {
+                    showNewMessageNotification(data.sender_name, data.message);
+                    incrementUnreadCounter();
+                }
             } else if (data.type === 'conversation_closed') {
                 handleConversationClosed(data.closed_by);
             } else if (data.type === 'conversation_reopened') {
@@ -491,12 +526,17 @@
         
         // Toggle chat window
         toggle.addEventListener('click', () => {
-            const isVisible = window.style.display === 'flex';
-            window.style.display = isVisible ? 'none' : 'flex';
-            chatIcon.style.display = isVisible ? 'block' : 'none';
-            closeIcon.style.display = isVisible ? 'none' : 'block';
+            const wasVisible = window.style.display === 'flex';
+            isWidgetOpen = !wasVisible;
+            
+            window.style.display = wasVisible ? 'none' : 'flex';
+            chatIcon.style.display = wasVisible ? 'block' : 'none';
+            closeIcon.style.display = wasVisible ? 'none' : 'block';
 
-            if (!isVisible) {
+            if (!wasVisible) {
+                // Clear unread counter when opening
+                clearUnreadCounter();
+                
                 // Focus on appropriate input based on current view
                 if (config.customerName && config.customerEmail) {
                     const messageInput = document.getElementById('defmis-message-input');
@@ -778,8 +818,24 @@
             to { opacity: 1; transform: translateY(0); }
         }
         
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+        
         #defmis-chat-toggle:hover {
             transform: scale(1.05);
+        }
+        
+        #defmis-chat-toggle.has-notifications {
+            animation: bounce 2s infinite;
         }
         
         #defmis-send-button:hover {
@@ -801,8 +857,86 @@
             background-color: #ccc;
             cursor: not-allowed;
         }
+        
+        #defmis-notification-badge {
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
     `;
     document.head.appendChild(style);
+
+    // Show browser notification for new message
+    const showNewMessageNotification = (senderName, message) => {
+        // Throttle notifications to prevent spam
+        const now = Date.now();
+        if (now - lastNotificationTime < 3000) return; // 3 second throttle
+        lastNotificationTime = now;
+        
+        // Check if notifications are supported and allowed
+        if ('Notification' in window) {
+            if (Notification.permission === 'granted') {
+                const notification = new Notification(`New message from ${senderName}`, {
+                    body: message.length > 50 ? message.substring(0, 50) + '...' : message,
+                    icon: `${config.apiUrl}/static/images/logo.png`,
+                    badge: `${config.apiUrl}/static/images/logo.png`,
+                    tag: 'defmis-chat',
+                    renotify: false,
+                    requireInteraction: false
+                });
+                
+                // Auto close after 5 seconds
+                setTimeout(() => {
+                    notification.close();
+                }, 5000);
+                
+                // Open widget when notification is clicked
+                notification.onclick = () => {
+                    window.focus();
+                    const chatWindow = document.getElementById('defmis-chat-window');
+                    const toggle = document.getElementById('defmis-chat-toggle');
+                    if (chatWindow && toggle && chatWindow.style.display !== 'flex') {
+                        toggle.click();
+                    }
+                    notification.close();
+                };
+            } else if (Notification.permission === 'default') {
+                // Request permission
+                Notification.requestPermission().then(permission => {
+                    if (permission === 'granted') {
+                        showNewMessageNotification(senderName, message);
+                    }
+                });
+            }
+        }
+    };
+
+    // Increment unread message counter
+    const incrementUnreadCounter = () => {
+        unreadCount++;
+        updateNotificationBadge();
+    };
+
+    // Clear unread message counter
+    const clearUnreadCounter = () => {
+        unreadCount = 0;
+        updateNotificationBadge();
+    };
+
+    // Update notification badge display
+    const updateNotificationBadge = () => {
+        const badge = document.getElementById('defmis-notification-badge');
+        const toggle = document.getElementById('defmis-chat-toggle');
+        
+        if (badge && toggle) {
+            if (unreadCount > 0) {
+                badge.style.display = 'flex';
+                badge.textContent = unreadCount > 99 ? '99+' : unreadCount.toString();
+                toggle.classList.add('has-notifications');
+            } else {
+                badge.style.display = 'none';
+                toggle.classList.remove('has-notifications');
+            }
+        }
+    };
 
     // Initialize when DOM is ready
     if (document.readyState === 'loading') {
