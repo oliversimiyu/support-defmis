@@ -110,6 +110,24 @@
                     <i class="fas fa-user-shield me-2"></i> Admin Panel
                 </a>
             </li>
+            
+            <!-- Admin Management Section -->
+            <li class="nav-item mt-3">
+                <h6 class="text-light opacity-75 px-3 mb-2">Account Management</h6>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if 'accounts' in request.resolver_match.namespace %}active{% endif %}" href="{% url 'accounts:admin_profile' %}">
+                    <i class="fas fa-user-edit me-2"></i> My Profile
+                </a>
+            </li>
+            {% if user.is_superuser %}
+            <li class="nav-item">
+                <a class="nav-link {% if request.resolver_match.url_name == 'admin_list' %}active{% endif %}" href="{% url 'accounts:admin_list' %}">
+                    <i class="fas fa-users-cog me-2"></i> Manage Admins
+                </a>
+            </li>
+            {% endif %}
+            
             <li class="nav-item mt-3">
                 <a class="nav-link" href="{% url 'dashboard:logout' %}">
                     <i class="fas fa-sign-out-alt me-2"></i> Logout
