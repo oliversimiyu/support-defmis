@@ -36,11 +36,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
             message = text_data_json['message']
             sender_type = text_data_json['sender_type']
             sender_name = text_data_json.get('sender_name', 'Anonymous')
+            attachment_url = text_data_json.get('attachment_url')  # Get attachment URL if present
+            attachment_path = text_data_json.get('attachment_path')  # Get attachment path from upload
             
-            # Save message to database
+            # Save message to database with attachment if provided
             chat_session, message_obj = await self.save_message(
-                self.customer_id, message, sender_type, sender_name
+                self.customer_id, message, sender_type, sender_name, attachment_path
             )
+            
+            # Use attachment URL from message if available, otherwise check message_obj
+            final_attachment_url = attachment_url if attachment_url else (message_obj.attachment.url if message_obj.attachment else None)
             
             # Send message to room group
             await self.channel_layer.group_send(
@@ -52,6 +57,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     'sender_name': sender_name,
                     'timestamp': message_obj.timestamp.isoformat(),
                     'message_id': str(message_obj.id),
+                    'attachment_url': final_attachment_url,
                 }
             )
             
@@ -66,6 +72,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     'sender_type': sender_type,
                     'sender_name': sender_name,
                     'timestamp': message_obj.timestamp.isoformat(),
+                    'attachment_url': final_attachment_url,
                 }
             )
             
@@ -114,6 +121,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         sender_name = event['sender_name']
         timestamp = event['timestamp']
         message_id = event['message_id']
+        attachment_url = event.get('attachment_url')
 
         # Send message to WebSocket
         await self.send(text_data=json.dumps({
@@ -123,6 +131,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'sender_name': sender_name,
             'timestamp': timestamp,
             'message_id': message_id,
+            'attachment_url': attachment_url,
         }))
 
     # Handle conversation closure
@@ -142,19 +151,20 @@ class ChatConsumer(AsyncWebsocketConsumer):
         }))
 
     @database_sync_to_async
-    def save_message(self, customer_id, message, sender_type, sender_name):
+    def save_message(self, customer_id, message, sender_type, sender_name, attachment_path=None):
         # Get or create chat session
         chat_session, created = ChatSession.objects.get_or_create(
             customer_id=customer_id,
             defaults={'status': 'open'}
         )
         
-        # Create message
+        # Create message with attachment if provided
         message_obj = Message.objects.create(
             chat_session=chat_session,
             content=message,
             sender_type=sender_type,
-            sender_name=sender_name
+            sender_name=sender_name,
+            attachment=attachment_path if attachment_path else None
         )
         
         return chat_session, message_obj
@@ -209,14 +219,25 @@ class AdminDashboardConsumer(AsyncWebsocketConsumer):
             customer_id = text_data_json['customer_id']
             message = text_data_json['message']
             sender_name = text_data_json.get('sender_name', self.scope["user"].get_full_name() or self.scope["user"].username)
+            attachment_url = text_data_json.get('attachment_url')  # Get attachment URL if present
+            attachment_path = text_data_json.get('attachment_path')  # Get attachment path from upload
             
-            # Save message to database
+            print(f"Admin message received: customer_id={customer_id}, message={message}")  # Debug
+            
+            # Save message to database with attachment if provided
             chat_session, message_obj = await self.save_admin_message(
-                customer_id, message, sender_name
+                customer_id, message, sender_name, attachment_path
             )
+            
+            print(f"Message saved: {message_obj.id}")  # Debug
+            
+            # Use provided attachment URL or get from message object
+            final_attachment_url = attachment_url if attachment_url else (message_obj.attachment.url if message_obj.attachment else None)
             
             # Send message to specific customer room
             customer_room = f'chat_{customer_id}'
+            print(f"Sending to customer room: {customer_room}")  # Debug
+            
             await self.channel_layer.group_send(
                 customer_room,
                 {
@@ -226,6 +247,25 @@ class AdminDashboardConsumer(AsyncWebsocketConsumer):
                     'sender_name': sender_name,
                     'timestamp': message_obj.timestamp.isoformat(),
                     'message_id': str(message_obj.id),
+                    'attachment_url': final_attachment_url,
+                }
+            )
+            
+            print(f"Message sent to customer room")  # Debug
+            
+            # Also send confirmation back to admin dashboard
+            await self.channel_layer.group_send(
+                'admin_dashboard',
+                {
+                    'type': 'admin_message_sent',
+                    'chat_session_id': str(chat_session.id),
+                    'customer_id': customer_id,
+                    'message': message,
+                    'sender_type': 'admin',
+                    'sender_name': sender_name,
+                    'timestamp': message_obj.timestamp.isoformat(),
+                    'message_id': str(message_obj.id),
+                    'attachment_url': final_attachment_url,
                 }
             )
             
@@ -301,6 +341,7 @@ class AdminDashboardConsumer(AsyncWebsocketConsumer):
             'sender_type': event['sender_type'],
             'sender_name': event['sender_name'],
             'timestamp': event['timestamp'],
+            'attachment_url': event.get('attachment_url'),
         }))
 
     async def conversation_status_changed(self, event):
@@ -321,8 +362,22 @@ class AdminDashboardConsumer(AsyncWebsocketConsumer):
         
         await self.send(text_data=json.dumps(response_data))
 
+    async def admin_message_sent(self, event):
+        # Send confirmation that admin message was sent (for real-time update in dashboard)
+        await self.send(text_data=json.dumps({
+            'type': 'admin_message_sent',
+            'chat_session_id': event['chat_session_id'],
+            'customer_id': event['customer_id'],
+            'message': event['message'],
+            'sender_type': event['sender_type'],
+            'sender_name': event['sender_name'],
+            'timestamp': event['timestamp'],
+            'message_id': event['message_id'],
+            'attachment_url': event.get('attachment_url'),
+        }))
+
     @database_sync_to_async
-    def save_admin_message(self, customer_id, message, sender_name):
+    def save_admin_message(self, customer_id, message, sender_name, attachment_path=None):
         # Get chat session
         chat_session = ChatSession.objects.get(customer_id=customer_id)
         
@@ -333,12 +388,13 @@ class AdminDashboardConsumer(AsyncWebsocketConsumer):
             is_read=False
         ).update(is_read=True)
         
-        # Create admin message
+        # Create admin message with attachment if provided
         message_obj = Message.objects.create(
             chat_session=chat_session,
             content=message,
             sender_type='admin',
-            sender_name=sender_name
+            sender_name=sender_name,
+            attachment=attachment_path if attachment_path else None
         )
         
         return chat_session, message_obj

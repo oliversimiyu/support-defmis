@@ -9,6 +9,7 @@ urlpatterns = [
     path('api/chat/start/', views.start_chat, name='start_chat'),
     path('api/chat/<str:customer_id>/history/', views.chat_history, name='chat_history'),
     path('api/chat/message/', views.send_message, name='send_message'),
+    path('api/chat/upload/', views.upload_attachment, name='upload_attachment'),
     
     # Admin API endpoints
     path('api/admin/sessions/', views.admin_chat_sessions, name='admin_chat_sessions'),

@@ -40,6 +40,19 @@
                         <div class="d-flex {% if message.sender_type == 'admin' %}justify-content-end{% else %}justify-content-start{% endif %}">
                             <div class="message-bubble {% if message.sender_type == 'admin' %}message-admin{% else %}message-customer{% endif %}">
                                 <div class="mb-1">{{ message.content }}</div>
+                                {% if message.attachment %}
+                                <div class="mt-2">
+                                    {% if message.attachment.url|lower|slice:"-4:" == '.jpg' or message.attachment.url|lower|slice:"-4:" == '.png' or message.attachment.url|lower|slice:"-5:" == '.jpeg' or message.attachment.url|lower|slice:"-4:" == '.gif' or message.attachment.url|lower|slice:"-5:" == '.webp' %}
+                                        <a href="{{ message.attachment.url }}" target="_blank">
+                                            <img src="{{ message.attachment.url }}" style="max-width: 200px; max-height: 150px; border-radius: 8px; cursor: pointer;" class="img-thumbnail" />
+                                        </a>
+                                    {% else %}
+                                        <a href="{{ message.attachment.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-paperclip me-1"></i> {{ message.attachment.url|slice:"20:" }}
+                                        </a>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
                                 <small class="opacity-75">
                                     {{ message.sender_name }} • {{ message.timestamp|date:"M d, H:i" }}
                                 </small>
@@ -58,8 +71,26 @@
                     <!-- Message Input -->
                     {% if conversation.status == 'open' %}
                     <div class="border-top pt-3">
+                        <!-- File Preview -->
+                        <div id="file-preview" style="display: none;" class="mb-2 p-2 bg-light border rounded">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-paperclip me-2"></i>
+                                    <span id="file-name"></span>
+                                    <small id="file-size" class="text-muted ms-2"></small>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFile()">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
                         <form id="message-form" class="d-flex">
-                            <input type="text" id="message-input" class="form-control me-2" placeholder="Type your message..." required>
+                            <input type="file" id="file-input" style="display: none;" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt">
+                            <button type="button" class="btn btn-outline-secondary me-2" onclick="document.getElementById('file-input').click()">
+                                <i class="fas fa-paperclip"></i>
+                            </button>
+                            <input type="text" id="message-input" class="form-control me-2" placeholder="Type your message...">
                             <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-paper-plane"></i>
                             </button>
@@ -89,6 +120,7 @@
     const customerId = '{{ conversation.customer_id }}';
     const adminName = '{{ user.get_full_name|default:user.username }}';
     let currentStatus = '{{ conversation.status }}'; // Track current status dynamically
+    let selectedFile = null; // Track selected file for upload
     
     // WebSocket connection
     const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
@@ -99,6 +131,51 @@
     const messagesContainer = document.getElementById('messages-container');
     const messageForm = document.getElementById('message-form');
     const messageInput = document.getElementById('message-input');
+    const fileInput = document.getElementById('file-input');
+    const filePreview = document.getElementById('file-preview');
+    
+    // File input handler
+    if (fileInput) {
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                selectedFile = file;
+                document.getElementById('file-name').textContent = file.name;
+                document.getElementById('file-size').textContent = `(${(file.size / 1024).toFixed(2)} KB)`;
+                filePreview.style.display = 'block';
+            }
+        });
+    }
+    
+    // Remove file function
+    window.removeFile = function() {
+        selectedFile = null;
+        if (fileInput) fileInput.value = '';
+        if (filePreview) filePreview.style.display = 'none';
+    };
+    
+    // Upload file function
+    async function uploadFile(file, senderType) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('customer_id', customerId);
+        formData.append('sender_type', senderType);
+        formData.append('sender_name', adminName);
+        formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));  // Add CSRF token to form data
+        
+        const response = await fetch('{% url "chat:upload_attachment" %}', {
+            method: 'POST',
+            body: formData
+            // Don't set Content-Type header - browser will set it with boundary for multipart/form-data
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Upload failed');
+        }
+        
+        return await response.json();
+    }
 
     chatSocket.onopen = function(e) {
         connectionStatus.innerHTML = '<span class="badge bg-success">Connected</span>';
@@ -107,10 +184,14 @@
 
     chatSocket.onmessage = function(e) {
         const data = JSON.parse(e.data);
+        console.log('WebSocket message:', data);  // Debug log
         
         if (data.type === 'new_message_notification' && data.customer_id === customerId) {
-            // Add new message to the chat
-            addMessageToChat(data.message, data.sender_type, data.sender_name, data.timestamp);
+            // Add new message to the chat with attachment if present
+            addMessageToChat(data.message, data.sender_type, data.sender_name, data.timestamp, data.attachment_url);
+        } else if (data.type === 'admin_message_sent' && data.customer_id === customerId) {
+            // Admin message was successfully sent and saved - add to UI
+            addMessageToChat(data.message, data.sender_type, data.sender_name, data.timestamp, data.attachment_url);
         } else if (data.type === 'conversation_status_changed' && data.customer_id === customerId) {
             // Handle conversation status change
             currentStatus = data.status;
@@ -135,12 +216,37 @@
 
     // Handle message form submission
     if (messageForm) {
-        messageForm.addEventListener('submit', function(e) {
+        messageForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             
             const message = messageInput.value.trim();
-            if (message) {
-                // Send via WebSocket
+            
+            // Handle file upload
+            if (selectedFile) {
+                try {
+                    const uploadData = await uploadFile(selectedFile, 'admin');
+                    const fileMessage = message || `📎 ${selectedFile.name}`;
+                    
+                    // Send message with attachment via WebSocket
+                    chatSocket.send(JSON.stringify({
+                        'type': 'admin_message',
+                        'customer_id': customerId,
+                        'message': fileMessage,
+                        'sender_name': adminName,
+                        'attachment_path': uploadData.attachment_path,  // Send path for DB storage
+                        'attachment_url': uploadData.attachment_url      // Send URL for display
+                    }));
+                    
+                    // Don't add immediately - wait for WebSocket confirmation
+                    
+                    // Clear inputs
+                    removeFile();
+                    messageInput.value = '';
+                } catch (error) {
+                    alert('Error uploading file: ' + error.message);
+                }
+            } else if (message) {
+                // Send text message via WebSocket
                 chatSocket.send(JSON.stringify({
                     'type': 'admin_message',
                     'customer_id': customerId,
@@ -148,14 +254,13 @@
                     'sender_name': adminName
                 }));
                 
-                // Add to chat immediately
-                addMessageToChat(message, 'admin', adminName, new Date().toISOString());
+                // Don't add immediately - wait for WebSocket confirmation
                 messageInput.value = '';
             }
         });
     }
 
-    function addMessageToChat(message, senderType, senderName, timestamp) {
+    function addMessageToChat(message, senderType, senderName, timestamp, attachmentUrl = null) {
         const messageDiv = document.createElement('div');
         messageDiv.className = `d-flex ${senderType === 'admin' ? 'justify-content-end' : 'justify-content-start'}`;
         
@@ -169,8 +274,32 @@
         const date = new Date(timestamp);
         const timeString = date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
         
+        let attachmentHtml = '';
+        if (attachmentUrl) {
+            const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(attachmentUrl);
+            if (isImage) {
+                attachmentHtml = `
+                    <div class="mt-2">
+                        <a href="${attachmentUrl}" target="_blank">
+                            <img src="${attachmentUrl}" style="max-width: 200px; max-height: 150px; border-radius: 8px; cursor: pointer;" class="img-thumbnail" />
+                        </a>
+                    </div>
+                `;
+            } else {
+                const fileName = attachmentUrl.split('/').pop();
+                attachmentHtml = `
+                    <div class="mt-2">
+                        <a href="${attachmentUrl}" target="_blank" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-paperclip me-1"></i> ${escapeHtml(fileName)}
+                        </a>
+                    </div>
+                `;
+            }
+        }
+        
         bubbleDiv.innerHTML = `
             <div class="mb-1">${escapeHtml(message)}</div>
+            ${attachmentHtml}
             <small class="opacity-75">${escapeHtml(senderName)} • ${timeString}</small>
         `;
         

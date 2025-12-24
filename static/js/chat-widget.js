@@ -228,7 +228,34 @@
                         border-radius: 0 0 10px 10px;
                         display: none;
                     ">
-                        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                        <div style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center;">
+                            <button 
+                                id="defmis-attachment-button"
+                                title="Attach file"
+                                style="
+                                    background: none;
+                                    border: 1px solid #ddd;
+                                    padding: 8px;
+                                    border-radius: 50%;
+                                    cursor: pointer;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    transition: background-color 0.3s;
+                                "
+                                onmouseover="this.style.backgroundColor='#f0f0f0';"
+                                onmouseout="this.style.backgroundColor='transparent';"
+                            >
+                                <svg width="20" height="20" fill="#666" viewBox="0 0 24 24">
+                                    <path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/>
+                                </svg>
+                            </button>
+                            <input 
+                                type="file" 
+                                id="defmis-file-input" 
+                                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                                style="display: none;"
+                            />
                             <input 
                                 type="text" 
                                 id="defmis-message-input" 
@@ -260,6 +287,12 @@
                                     <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
                                 </svg>
                             </button>
+                        </div>
+                        <div id="defmis-file-preview" style="display: none; padding: 8px; background: #f8f9fa; border-radius: 8px; margin-bottom: 10px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span id="defmis-file-name" style="font-size: 12px; color: #666;"></span>
+                                <button id="defmis-remove-file" style="background: none; border: none; color: #dc3545; cursor: pointer; font-size: 18px;">×</button>
+                            </div>
                         </div>
                         <div style="text-align: center;">
                             <button 
@@ -398,7 +431,10 @@
             `;
 
             messages.forEach(message => {
-                addMessage(message.content, message.sender_type, message.sender_name || 'Admin', false);
+                const attachmentUrl = message.attachment ? 
+                    (message.attachment.startsWith('http') ? message.attachment : `${config.apiUrl}${message.attachment}`) : 
+                    null;
+                addMessage(message.content, message.sender_type, message.sender_name || 'Admin', false, attachmentUrl);
             });
 
             scrollToBottom();
@@ -421,11 +457,14 @@
 
         socket.onmessage = (event) => {
             const data = JSON.parse(event.data);
+            console.log('Client widget received WebSocket message:', data);  // Debug log
             
             if (data.type === 'chat_message') {
                 // Display messages from admin or system (automated responses)
                 if (data.sender_type === 'admin' || data.sender_type === 'system') {
-                    addMessage(data.message, data.sender_type, data.sender_name, true);
+                    console.log('Displaying admin/system message:', data.message);  // Debug log
+                    const attachmentUrl = data.attachment_url || null;
+                    addMessage(data.message, data.sender_type, data.sender_name, true, attachmentUrl);
                     
                     // Show notification if widget is closed
                     if (!isWidgetOpen) {
@@ -597,12 +636,139 @@
         if (newConversationButton) {
             newConversationButton.addEventListener('click', startNewConversation);
         }
+
+        // File attachment event listeners
+        const attachmentButton = document.getElementById('defmis-attachment-button');
+        const fileInput = document.getElementById('defmis-file-input');
+        const removeFileButton = document.getElementById('defmis-remove-file');
+
+        if (attachmentButton) {
+            attachmentButton.addEventListener('click', () => {
+                fileInput.click();
+            });
+        }
+
+        if (fileInput) {
+            fileInput.addEventListener('change', handleFileSelect);
+        }
+
+        if (removeFileButton) {
+            removeFileButton.addEventListener('click', removeSelectedFile);
+        }
+    };
+
+    // Handle file selection
+    let selectedFile = null;
+
+    const handleFileSelect = (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        // Validate file size (max 10MB)
+        const maxSize = 10 * 1024 * 1024;
+        if (file.size > maxSize) {
+            alert('File size exceeds 10MB limit. Please choose a smaller file.');
+            event.target.value = '';
+            return;
+        }
+
+        // Validate file type
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf', 
+                             'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                             'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                             'text/plain'];
+        
+        if (!allowedTypes.includes(file.type)) {
+            alert('File type not allowed. Please upload images, PDF, Word, Excel, or text files.');
+            event.target.value = '';
+            return;
+        }
+
+        selectedFile = file;
+        showFilePreview(file);
+    };
+
+    const showFilePreview = (file) => {
+        const preview = document.getElementById('defmis-file-preview');
+        const fileName = document.getElementById('defmis-file-name');
+        
+        const size = file.size < 1024 * 1024 ? 
+            (file.size / 1024).toFixed(1) + ' KB' : 
+            (file.size / (1024 * 1024)).toFixed(1) + ' MB';
+        
+        fileName.textContent = `📎 ${file.name} (${size})`;
+        preview.style.display = 'block';
+    };
+
+    const removeSelectedFile = () => {
+        selectedFile = null;
+        document.getElementById('defmis-file-input').value = '';
+        document.getElementById('defmis-file-preview').style.display = 'none';
+    };
+
+    const uploadFile = async (file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('customer_id', config.customerId);
+        formData.append('sender_name', config.customerName || 'Customer');
+
+        try {
+            const response = await fetch(`${config.apiUrl}/chat/api/chat/upload/`, {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+            
+            if (response.ok) {
+                return data;
+            } else {
+                throw new Error(data.error || 'Upload failed');
+            }
+        } catch (error) {
+            console.error('Error uploading file:', error);
+            throw error;
+        }
     };
 
     // Send message
-    const sendMessage = () => {
+    const sendMessage = async () => {
         const input = document.getElementById('defmis-message-input');
         const message = input.value.trim();
+
+        // Check if there's a file to send
+        if (selectedFile) {
+            try {
+                // Show uploading message
+                addMessage('📎 Uploading file...', 'customer', config.customerName || 'You', true);
+                
+                // Upload file
+                const uploadData = await uploadFile(selectedFile);
+                
+                // Send message with file info via WebSocket
+                const fileMessage = `📎 ${selectedFile.name}`;
+                
+                if (socket && isConnected) {
+                    socket.send(JSON.stringify({
+                        type: 'chat_message',
+                        message: message || fileMessage,
+                        sender_type: 'customer',
+                        sender_name: config.customerName || 'Customer',
+                        attachment_path: uploadData.attachment_path,  // Send path for DB storage
+                        attachment_url: uploadData.attachment_url      // Send URL for display
+                    }));
+                }
+                
+                // Remove file preview
+                removeSelectedFile();
+                input.value = '';
+                
+            } catch (error) {
+                alert('Error uploading file. Please try again.');
+                console.error('Upload error:', error);
+            }
+            return;
+        }
 
         if (!message) return;
 
@@ -638,7 +804,7 @@
     };
 
     // Add message to UI
-    const addMessage = (content, senderType, senderName, animate = false) => {
+    const addMessage = (content, senderType, senderName, animate = false, attachmentUrl = null) => {
         const messagesContainer = document.getElementById('defmis-messages');
         const isCustomer = senderType === 'customer';
         const isSystem = senderType === 'system';
@@ -689,18 +855,45 @@
             ${animate ? 'animation: slideIn 0.3s ease;' : ''}
         `;
 
-        // Create message content with sender name for admin messages
+        // Create message content with sender name for admin messages and handle attachments
+        let messageContent = '';
+        
         if (isAdmin && senderName && senderName !== 'Admin') {
-            messageDiv.innerHTML = `
+            messageContent = `
                 <div style="font-weight: 600; font-size: 11px; color: #666; margin-bottom: 4px;">
                     ${senderName}
                 </div>
                 <div>${content}</div>
             `;
         } else {
-            messageDiv.textContent = content;
+            messageContent = content;
         }
 
+        // Add attachment preview if present
+        if (attachmentUrl) {
+            const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(attachmentUrl);
+            
+            if (isImage) {
+                messageContent += `
+                    <div style="margin-top: 8px;">
+                        <a href="${attachmentUrl}" target="_blank">
+                            <img src="${attachmentUrl}" style="max-width: 200px; max-height: 150px; border-radius: 8px; cursor: pointer;" />
+                        </a>
+                    </div>
+                `;
+            } else {
+                const fileName = attachmentUrl.split('/').pop();
+                messageContent += `
+                    <div style="margin-top: 8px; padding: 8px; background: rgba(0,0,0,0.1); border-radius: 8px;">
+                        <a href="${attachmentUrl}" target="_blank" style="color: ${isCustomer ? 'white' : '#007bff'}; text-decoration: none;">
+                            📎 ${fileName}
+                        </a>
+                    </div>
+                `;
+            }
+        }
+
+        messageDiv.innerHTML = messageContent;
         messagesContainer.appendChild(messageDiv);
         scrollToBottom();
     };
