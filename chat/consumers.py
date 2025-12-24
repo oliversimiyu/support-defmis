@@ -3,6 +3,7 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth.models import User
 from .models import ChatSession, Message
+from .automated_responses import AutomatedResponseService
 import uuid
 
 
@@ -67,6 +68,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     'timestamp': message_obj.timestamp.isoformat(),
                 }
             )
+            
+            # Process automated responses for customer messages
+            if sender_type == 'customer':
+                await AutomatedResponseService.process_automated_responses(
+                    self.customer_id,
+                    message,
+                    self.channel_layer,
+                    self.room_group_name
+                )
             
         elif message_type == 'close_conversation':
             # Close the conversation

@@ -74,3 +74,76 @@ class ChatWidget(models.Model):
     
     def __str__(self):
         return self.name
+
+
+class AutomatedResponse(models.Model):
+    """Automated response rules for chat"""
+    TRIGGER_TYPES = [
+        ('keyword', 'Keyword Match'),
+        ('greeting', 'Greeting Message'),
+        ('first_message', 'First Message (Welcome)'),
+        ('offline', 'All Admins Offline'),
+        ('business_hours', 'Outside Business Hours'),
+    ]
+    
+    name = models.CharField(max_length=200, help_text="Internal name for this automated response")
+    trigger_type = models.CharField(max_length=20, choices=TRIGGER_TYPES)
+    keywords = models.TextField(
+        blank=True, 
+        help_text="Comma-separated keywords to match (for keyword trigger type)"
+    )
+    response_message = models.TextField(help_text="The automated message to send")
+    is_active = models.BooleanField(default=True)
+    priority = models.IntegerField(
+        default=0, 
+        help_text="Higher priority responses are checked first"
+    )
+    delay_seconds = models.IntegerField(
+        default=0,
+        help_text="Delay in seconds before sending the automated response (0 for immediate)"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-priority', '-created_at']
+        verbose_name = 'Automated Response'
+        verbose_name_plural = 'Automated Responses'
+    
+    def __str__(self):
+        return f"{self.name} ({self.get_trigger_type_display()})"
+    
+    def get_keywords_list(self):
+        """Return list of keywords"""
+        if self.keywords:
+            return [k.strip().lower() for k in self.keywords.split(',') if k.strip()]
+        return []
+    
+    def matches_message(self, message_content):
+        """Check if this automated response should trigger for given message"""
+        if not self.is_active:
+            return False
+        
+        if self.trigger_type == 'keyword':
+            keywords = self.get_keywords_list()
+            message_lower = message_content.lower()
+            return any(keyword in message_lower for keyword in keywords)
+        
+        return False
+
+
+class AutomatedResponseLog(models.Model):
+    """Track when automated responses are sent"""
+    chat_session = models.ForeignKey(ChatSession, on_delete=models.CASCADE, related_name='automated_responses')
+    automated_response = models.ForeignKey(AutomatedResponse, on_delete=models.SET_NULL, null=True)
+    message = models.ForeignKey(Message, on_delete=models.SET_NULL, null=True, related_name='automated_response_log')
+    trigger_message_content = models.TextField(help_text="The customer message that triggered this response")
+    sent_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-sent_at']
+        verbose_name = 'Automated Response Log'
+        verbose_name_plural = 'Automated Response Logs'
+    
+    def __str__(self):
+        return f"Auto-response in {self.chat_session} at {self.sent_at}"

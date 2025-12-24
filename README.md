@@ -8,6 +8,7 @@ A Django-based real-time customer support chat platform with an embeddable widge
 - **Persistent Conversations**: Messages are saved to database for conversation continuity
 - **Embeddable Widget**: JavaScript widget that can be embedded on any website
 - **Admin Dashboard**: Comprehensive interface for managing conversations
+- **Automated Responses**: Intelligent auto-replies based on keywords, greetings, business hours, and more
 - **Responsive Design**: Works on desktop, tablet, and mobile devices
 - **Customizable**: Configure widget appearance, colors, and messages
 - **File Attachments**: Support for sending files and images (configurable)
@@ -75,6 +76,9 @@ ALLOWED_HOSTS=localhost,127.0.0.1,yourdomain.com
 python manage.py makemigrations
 python manage.py migrate
 python manage.py createsuperuser
+
+# Create default automated responses (optional but recommended)
+python manage.py create_default_responses
 ```
 
 ### 4. Start Services
@@ -137,6 +141,15 @@ Add the following code to your website before the closing `</body>` tag:
 - **Customization**: Colors, position, welcome messages
 - **Integration Code**: Copy-paste code for easy website integration
 - **Preview**: Visual preview of widget appearance
+
+### Automated Responses
+- **Intelligent Auto-replies**: Trigger responses based on keywords, greetings, and context
+- **Business Hours**: Automatically inform customers when outside business hours
+- **Offline Detection**: Notify when all agents are busy
+- **Customizable Rules**: Create and manage response rules via admin panel
+- **Response Logs**: Track which automated responses were sent and when
+
+📚 **Detailed Documentation**: See [AUTOMATED_RESPONSES.md](AUTOMATED_RESPONSES.md) for full automated responses guide.
 
 ## 🔧 API Endpoints
 

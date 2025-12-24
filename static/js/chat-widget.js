@@ -398,7 +398,7 @@
             `;
 
             messages.forEach(message => {
-                addMessage(message.content, message.sender_type, message.sender_name, false);
+                addMessage(message.content, message.sender_type, message.sender_name || 'Admin', false);
             });
 
             scrollToBottom();
@@ -421,13 +421,17 @@
 
         socket.onmessage = (event) => {
             const data = JSON.parse(event.data);
-            if (data.type === 'chat_message' && data.sender_type === 'admin') {
-                addMessage(data.message, data.sender_type, data.sender_name, true);
-                
-                // Show notification if widget is closed
-                if (!isWidgetOpen) {
-                    showNewMessageNotification(data.sender_name, data.message);
-                    incrementUnreadCounter();
+            
+            if (data.type === 'chat_message') {
+                // Display messages from admin or system (automated responses)
+                if (data.sender_type === 'admin' || data.sender_type === 'system') {
+                    addMessage(data.message, data.sender_type, data.sender_name, true);
+                    
+                    // Show notification if widget is closed
+                    if (!isWidgetOpen) {
+                        showNewMessageNotification(data.sender_name, data.message);
+                        incrementUnreadCounter();
+                    }
                 }
             } else if (data.type === 'conversation_closed') {
                 handleConversationClosed(data.closed_by);
@@ -638,6 +642,7 @@
         const messagesContainer = document.getElementById('defmis-messages');
         const isCustomer = senderType === 'customer';
         const isSystem = senderType === 'system';
+        const isAdmin = senderType === 'admin';
 
         const messageDiv = document.createElement('div');
         messageDiv.className = `defmis-message defmis-message-${senderType}`;
@@ -683,7 +688,18 @@
             ${isSystem ? 'border: 1px solid #e9ecef;' : ''}
             ${animate ? 'animation: slideIn 0.3s ease;' : ''}
         `;
-        messageDiv.textContent = content;
+
+        // Create message content with sender name for admin messages
+        if (isAdmin && senderName && senderName !== 'Admin') {
+            messageDiv.innerHTML = `
+                <div style="font-weight: 600; font-size: 11px; color: #666; margin-bottom: 4px;">
+                    ${senderName}
+                </div>
+                <div>${content}</div>
+            `;
+        } else {
+            messageDiv.textContent = content;
+        }
 
         messagesContainer.appendChild(messageDiv);
         scrollToBottom();

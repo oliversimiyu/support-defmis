@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import ChatSession, Message, ChatWidget
+from .models import ChatSession, Message, ChatWidget, AutomatedResponse
 
 
 class MessageSerializer(serializers.ModelSerializer):
@@ -28,3 +28,17 @@ class ChatWidgetSerializer(serializers.ModelSerializer):
     class Meta:
         model = ChatWidget
         fields = ['name', 'welcome_message', 'primary_color', 'widget_position', 'is_active']
+
+
+class AutomatedResponseSerializer(serializers.ModelSerializer):
+    keywords_list = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = AutomatedResponse
+        fields = ['id', 'name', 'trigger_type', 'keywords', 'keywords_list', 
+                 'response_message', 'is_active', 'priority', 'delay_seconds', 
+                 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at']
+    
+    def get_keywords_list(self, obj):
+        return obj.get_keywords_list()

@@ -9,3 +9,4 @@ django-cors-headers==4.3.1
 daphne==4.0.0
 whitenoise==6.6.0
 asgiref>=3.7.0
+decouple>=3.8.0
