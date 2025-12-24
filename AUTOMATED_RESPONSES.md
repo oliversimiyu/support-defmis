@@ -1,11 +1,67 @@
-# Automated Responses Feature
+# Automated Responses Feature - DEFMIS
 
 ## Overview
-The chat platform now includes intelligent automated responses that trigger based on customer messages, helping to provide instant engagement and manage customer expectations.
+The DEFMIS chat platform includes intelligent automated responses specifically designed for the Defence Forces Insurance Scheme. These responses help members get instant answers about coverage, claims, accredited hospitals, Smart Access app, and other insurance-related queries.
 
-## Features
+## DEFMIS-Specific Features
 
-### Trigger Types
+### Automated Response Categories
+
+1. **Coverage & Benefits**
+   - Inpatient coverage (100% up to KES 2M)
+   - Outpatient coverage (75% up to KES 400K)
+   - Annual limits and co-payment information
+
+2. **Smart Access App**
+   - App download instructions
+   - USSD code (*891#) information
+   - Visit code generation
+   - OTP and biometric verification
+
+3. **Hospital & Treatment**
+   - Accredited hospital information
+   - Emergency procedures
+   - Non-accredited facility guidelines
+
+4. **Claims & Pre-authorization**
+   - Pre-authorization requirements
+   - 24-hour notification rules
+   - Claim form procedures
+
+5. **Membership & Cards**
+   - Card usage requirements
+   - Fingerprint biometric verification
+   - Lost card procedures
+
+6. **Dependents & Family**
+   - Spouse lifetime coverage
+   - Children coverage (up to 21 years)
+   - Dependent card requirements
+
+7. **Exclusions**
+   - Cosmetic procedures
+   - Overseas treatment
+   - Dental cosmetics
+   - Other exclusions per Trust Deed
+
+8. **Overseas Treatment**
+   - Board approval process
+   - Required documentation (3 opinions)
+   - Processing timelines
+
+9. **Emergency Support**
+   - Emergency care procedures
+   - Ambulance coverage rules
+   - Urgent case handling
+
+10. **Contact Information**
+    - Smart Access support numbers
+    - ICT support contacts
+    - DEFMIS website
+
+## Default Responses
+
+The system comes with 15 pre-configured DEFMIS-specific automated responses:
 
 1. **First Message (Welcome)**
    - Automatically greets customers when they send their first message
@@ -53,17 +109,25 @@ Access the Django admin panel at `/admin/chat/automatedresponse/` to:
 
 ## Default Responses
 
-The system comes with 7 pre-configured automated responses:
+The system comes with 15 pre-configured DEFMIS-specific automated responses:
 
-1. Welcome Message (first_message)
-2. Greeting Response (greeting)
-3. Pricing Information (keyword: pricing, cost, payment, etc.)
-4. Support Help (keyword: help, support, issue, bug, etc.)
-5. Account Issues (keyword: account, login, password, etc.)
-6. Outside Business Hours (business_hours)
-7. All Agents Offline (offline)
+1. **Welcome Message** (first_message) - DEFMIS introduction
+2. **Greeting Response** (greeting) - Friendly greeting
+3. **Coverage Information** (keyword) - Inpatient/outpatient coverage details
+4. **Smart Access App** (keyword) - App and USSD information
+5. **Hospital Information** (keyword) - Accredited hospitals guidance
+6. **Pre-authorization** (keyword) - Admission approval process
+7. **Claims Process** (keyword) - Claim form and payment procedures
+8. **Membership Card** (keyword) - Card usage and biometrics
+9. **Dependent Coverage** (keyword) - Family member coverage
+10. **Exclusions** (keyword) - What's not covered
+11. **Overseas Treatment** (keyword) - International care approval
+12. **Emergency Help** (keyword) - Emergency procedures
+13. **Contact Information** (keyword) - DEFMIS contact numbers
+14. **Outside Business Hours** (business_hours) - After-hours message
+15. **All Agents Offline** (offline) - When agents are busy
 
-## Usage
+## Trigger Types
 
 ### Creating Custom Responses
 
