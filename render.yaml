@@ -19,23 +19,9 @@ services:
           name: defmis-db
           property: connectionString
       - key: REDIS_URL
-        fromService:
-          type: pserv
-          name: defmis-redis
-          envVarKey: REDIS_URL
+        sync: false
       - key: ALLOWED_HOSTS
         sync: false
-
-  # Redis Service (for Channels)
-  - type: pserv
-    name: defmis-redis
-    runtime: docker
-    plan: free
-    image:
-      url: redis:alpine
-    envVars:
-      - key: REDIS_URL
-        value: redis://localhost:6379
 
 # PostgreSQL Database
 databases:
