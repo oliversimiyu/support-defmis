@@ -22,7 +22,7 @@ services:
         fromService:
           type: pserv
           name: defmis-redis
-          property: connectionString
+          envVarKey: REDIS_URL
       - key: ALLOWED_HOSTS
         sync: false
 
@@ -33,10 +33,9 @@ services:
     plan: free
     image:
       url: redis:alpine
-    disk:
-      name: redis-data
-      mountPath: /data
-      sizeGB: 1
+    envVars:
+      - key: REDIS_URL
+        value: redis://localhost:6379
 
 # PostgreSQL Database
 databases:
