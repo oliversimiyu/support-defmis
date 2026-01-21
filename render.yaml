@@ -2,14 +2,10 @@ services:
   # Web Service (Django + Channels with Daphne)
   - type: web
     name: defmis-chat
-    env: python
-    region: oregon
+    runtime: python
     plan: free
     branch: main
-    buildCommand: |
-      pip install -r requirements.txt
-      python manage.py collectstatic --noinput
-      python manage.py migrate
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate
     startCommand: daphne -b 0.0.0.0 -p $PORT chatplatform.asgi:application
     envVars:
       - key: PYTHON_VERSION
@@ -24,18 +20,23 @@ services:
           property: connectionString
       - key: REDIS_URL
         fromService:
+          type: pserv
           name: defmis-redis
-          type: redis
           property: connectionString
       - key: ALLOWED_HOSTS
         sync: false
-    autoDeploy: true
 
   # Redis Service (for Channels)
-  - type: redis
+  - type: pserv
     name: defmis-redis
+    runtime: docker
     plan: free
-    ipAllowList: []
+    image:
+      url: redis:alpine
+    disk:
+      name: redis-data
+      mountPath: /data
+      sizeGB: 1
 
 # PostgreSQL Database
 databases:
