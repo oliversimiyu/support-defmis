@@ -89,20 +89,24 @@ ASGI_APPLICATION = 'chatplatform.asgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
+import dj_database_url
 
-# For production use PostgreSQL
-# import dj_database_url
-# DATABASES = {
-#     'default': dj_database_url.config(
-#         default=config('DATABASE_URL', default='sqlite:///db.sqlite3')
-#     )
-# }
+DATABASE_URL = config('DATABASE_URL', default=None)
+
+if DATABASE_URL:
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=DATABASE_URL,
+            conn_max_age=600
+        )
+    }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
@@ -166,22 +170,25 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 50,
 }
 
-# Channels - Use in-memory for development without Redis
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer',
-    },
-}
+# Channels - Redis configuration
+REDIS_URL = config('REDIS_URL', default=None)
 
-# For production with Redis, use:
-# CHANNEL_LAYERS = {
-#     'default': {
-#         'BACKEND': 'channels_redis.core.RedisChannelLayer',
-#         'CONFIG': {
-#             'hosts': [config('REDIS_URL', default='redis://localhost:6379/0')],
-#         },
-#     },
-# }
+if REDIS_URL:
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {
+                'hosts': [REDIS_URL],
+            },
+        },
+    }
+else:
+    # Use in-memory for development without Redis
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        },
+    }
 
 # CORS settings
 CORS_ALLOW_ALL_ORIGINS = DEBUG  # Only for development
@@ -194,6 +201,15 @@ CORS_ALLOWED_ORIGINS = [
 X_FRAME_OPTIONS = 'SAMEORIGIN'
 CSRF_COOKIE_HTTPONLY = True
 SESSION_COOKIE_HTTPONLY = True
+
+# Production security settings
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Login URLs
 LOGIN_URL = '/dashboard/login/'

@@ -1,14 +1,51 @@
+# Python
 *.pyc
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Database
 *.sqlite3
 db.sqlite3
-/staticfiles/
+
+# Environment
 .env
+.env.local
 .venv/
+venv/
+ENV/
+env/
+
+# Static files
+/staticfiles/
+/static_collected/
+
+# Media files
+/media/
+
+# IDEs
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Node
 node_modules/
+
+# Build
 dist/
 build/
+
+# Logs
 *.log
+
+# Coverage
+.coverage
+htmlcov/
